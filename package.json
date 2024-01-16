@@ -1,0 +1,26 @@
+{
+  "name": "gnome-shell-extension-clipqr",
+  "version": "1.0.0",
+  "description": "",
+  "main": "extension.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drien/gnome-shell-extension-clipqr.git"
+  },
+  "author": "Adrien Delessert",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/drien/gnome-shell-extension-clipqr/issues"
+  },
+  "homepage": "https://github.com/drien/gnome-shell-extension-clipqr#readme",
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-promise": "^6.1.1"
+  }
+}

@@ -15,15 +15,13 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
- import Clutter from 'gi://Clutter';
- import GObject from 'gi://GObject';
- import Gio from 'gi://Gio';
- import GLib from 'gi://GLib';
- import St from 'gi://St';
+import GObject from 'gi://GObject';
+import Gio from 'gi://Gio';
+import St from 'gi://St';
 
- import {
+import {
   Extension,
-  gettext as _
+  gettext as _,
 } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -32,14 +30,12 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import QRCode from './vendor/qrcode.js';
 
-const CLIPBOARD_TYPE = St.ClipboardType.CLIPBOARD;
-
 const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
     _init() {
-      super._init(0.0, _('My Shiny Indicator'));
-
+      super._init(0.0, _('ClipQR'));
       const self = this;
+
       this.add_child(new St.Icon({
         icon_name: 'face-smile-symbolic',
         style_class: 'system-status-icon',
@@ -47,13 +43,13 @@ const Indicator = GObject.registerClass(
 
       let qrWidget;
       qrWidget = new St.Widget();
-      self.menu.box.add_child(qrWidget);
+      this.menu.box.add_child(qrWidget);
       const emptyItem = new PopupMenu.PopupMenuItem(_('The clipboard is empty.'), {
         can_focus: false,
         hover: false,
         activate: false,
       });
-      self.menu.addMenuItem(emptyItem);
+      this.menu.addMenuItem(emptyItem);
 
       let file;
       this.menu.connect('open-state-changed', (menu, open) => {
@@ -62,7 +58,7 @@ const Indicator = GObject.registerClass(
           if (file) {
             file.delete(null);
           }
-          return
+          return;
         }
 
         qrWidget.visible = false;
@@ -78,17 +74,20 @@ const Indicator = GObject.registerClass(
             padding: 1,
             width: 256,
             height: 256,
-            color: "#000000",
-            background: "#ffffff",
-            ecl: "M",
+            color: '#000000',
+            background: '#ffffff',
+            ecl: 'M',
           });
 
           const fileInfo = Gio.File.new_tmp('clipqrXXXXXX');
           file = fileInfo[0];
 
-          const [etag] = file.replace_contents(
-            new TextEncoder().encode(qrCode.svg()), null, false,
-            Gio.FileCreateFlags.REPLACE_DESTINATION, null
+          file.replace_contents(
+            new TextEncoder().encode(qrCode.svg()),
+            null,
+            false,
+            Gio.FileCreateFlags.REPLACE_DESTINATION,
+            null,
           );
 
           qrWidget.set_style(`
@@ -101,7 +100,8 @@ const Indicator = GObject.registerClass(
         });
       });
     }
-  });
+  },
+);
 
 export default class IndicatorExampleExtension extends Extension {
   enable() {
