@@ -58,7 +58,6 @@ const Indicator = GObject.registerClass(
       let file;
       this.menu.connect('open-state-changed', (menu, open) => {
         if (!open) {
-          qrWidget.set_style('background-image: none;');
           if (file) {
             file.delete(null);
           }
