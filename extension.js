@@ -32,14 +32,18 @@ import QRCode from './vendor/qrcode.js';
 
 const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
-    _init() {
+    _init(extensionInfo) {
+
       super._init(0.0, _('ClipQR'));
       const self = this;
 
-      this.add_child(new St.Icon({
-        icon_name: 'face-smile-symbolic',
+      const icon = new St.Icon({
         style_class: 'system-status-icon',
-      }));
+      });
+      icon.gicon = Gio.icon_new_for_string(
+        `${extensionInfo.path}/resources/qr_icon.png`
+      );
+      this.add_child(icon);
 
       let qrWidget;
       qrWidget = new St.Widget();
@@ -105,7 +109,7 @@ const Indicator = GObject.registerClass(
 
 export default class IndicatorExampleExtension extends Extension {
   enable() {
-    this._indicator = new Indicator();
+    this._indicator = new Indicator(this);
     Main.panel.addToStatusArea(this.uuid, this._indicator);
   }
 
