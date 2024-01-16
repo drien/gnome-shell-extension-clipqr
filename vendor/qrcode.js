@@ -1,3 +1,5 @@
+// Sourced from https://github.com/papnkukn/qrcode-svg/blob/master/lib/qrcode.js
+
 /**
  * @fileoverview
  * - modified davidshimjs/qrcodejs library for use in node.js
