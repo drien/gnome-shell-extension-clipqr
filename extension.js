@@ -18,6 +18,7 @@
  import Clutter from 'gi://Clutter';
  import GObject from 'gi://GObject';
  import Gio from 'gi://Gio';
+ import GLib from 'gi://GLib';
  import St from 'gi://St';
 
  import {
@@ -44,9 +45,9 @@ const Indicator = GObject.registerClass(
         style_class: 'system-status-icon',
       }));
 
-      let parentActor;
-      parentActor = new St.Widget();
-      self.menu.box.add_child(parentActor);
+      let qrWidget;
+      qrWidget = new St.Widget();
+      self.menu.box.add_child(qrWidget);
       const emptyItem = new PopupMenu.PopupMenuItem(_('The clipboard is empty.'), {
         can_focus: false,
         hover: false,
@@ -54,13 +55,17 @@ const Indicator = GObject.registerClass(
       });
       self.menu.addMenuItem(emptyItem);
 
+      let file;
       this.menu.connect('open-state-changed', (menu, open) => {
         if (!open) {
-          parentActor.set_style('background-image: none;');
+          qrWidget.set_style('background-image: none;');
+          if (file) {
+            file.delete(null);
+          }
           return
         }
 
-        parentActor.visible = false;
+        qrWidget.visible = false;
         emptyItem.visible = false;
 
         St.Clipboard.get_default().get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
@@ -70,20 +75,21 @@ const Indicator = GObject.registerClass(
           }
           const qrCode = new QRCode(text);
 
-          const file = Gio.File.new_for_uri('file:///tmp/test-file.svg');
+          const fileInfo = Gio.File.new_tmp('clipqrXXXXXX');
+          file = fileInfo[0];
 
           const [etag] = file.replace_contents(
             new TextEncoder().encode(qrCode.svg()), null, false,
             Gio.FileCreateFlags.REPLACE_DESTINATION, null
           );
 
-          parentActor.set_style(`
-            background-image: url(file:///tmp/test-file.svg);
+          qrWidget.set_style(`
+            background-image: url(${file.get_uri()});
             background-size: cover;
-            width: 250px;
-            height: 250px;
+            width: 256px;
+            height: 256px;
           `);
-          parentActor.visible = true;
+          qrWidget.visible = true;
         });
       });
     }
