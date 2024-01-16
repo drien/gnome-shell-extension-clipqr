@@ -1,0 +1,8 @@
+{
+  "name": "ClipQR",
+  "description": "Quickly generate a QR code from your clipboard.",
+  "uuid": "clipqr@drien.com",
+  "shell-version": [
+    "45"
+  ]
+}
