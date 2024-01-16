@@ -73,7 +73,15 @@ const Indicator = GObject.registerClass(
             emptyItem.visible = true;
             return;
           }
-          const qrCode = new QRCode(text);
+          const qrCode = new QRCode({
+            content: text,
+            padding: 1,
+            width: 256,
+            height: 256,
+            color: "#000000",
+            background: "#ffffff",
+            ecl: "M",
+          });
 
           const fileInfo = Gio.File.new_tmp('clipqrXXXXXX');
           file = fileInfo[0];
