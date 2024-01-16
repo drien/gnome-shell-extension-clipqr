@@ -38,16 +38,35 @@ const Indicator = GObject.registerClass(
     _init() {
       super._init(0.0, _('My Shiny Indicator'));
 
+      const self = this;
       this.add_child(new St.Icon({
         icon_name: 'face-smile-symbolic',
         style_class: 'system-status-icon',
       }));
 
-      let qrMenuItem = new PopupMenu.PopupMenuItem(_('Show QR'));
-      qrMenuItem.connect('activate', () => {
+      let parentActor;
+      parentActor = new St.Widget();
+      self.menu.box.add_child(parentActor);
+      const emptyItem = new PopupMenu.PopupMenuItem(_('The clipboard is empty.'), {
+        can_focus: false,
+        hover: false,
+        activate: false,
+      });
+      self.menu.addMenuItem(emptyItem);
+
+      this.menu.connect('open-state-changed', (menu, open) => {
+        if (!open) {
+          parentActor.set_style('background-image: none;');
+          return
+        }
+
+        parentActor.visible = false;
+        emptyItem.visible = false;
+
         St.Clipboard.get_default().get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
           if (!text) {
-            Main.notify(_('Empty clipboard!'));
+            emptyItem.visible = true;
+            return;
           }
           const qrCode = new QRCode(text);
 
@@ -56,40 +75,17 @@ const Indicator = GObject.registerClass(
           const [etag] = file.replace_contents(
             new TextEncoder().encode(qrCode.svg()), null, false,
             Gio.FileCreateFlags.REPLACE_DESTINATION, null
-            );
+          );
 
-          const parentActor = new St.Widget({
-            layout_manager: new Clutter.BoxLayout({
-              homogeneous: true,
-            })
-          });
           parentActor.set_style(`
             background-image: url(file:///tmp/test-file.svg);
-            width: 500px;
-            height: 500px;
-            `);
-          let button = new St.Button({
-            style_class: 'modal-dialog-linked-button',
-            button_mask: St.ButtonMask.ONE | St.ButtonMask.THREE,
-            reactive: true,
-            can_focus: true,
-            x_expand: true,
-            y_expand: true,
-            label: 'Close',
-          });
-          button.set_style(`
-            margin-top: 250px;
-            color: black;
-            `)
-          parentActor.add_child(button);
-          button.connect('clicked', () => {
-            Main.layoutManager.removeChrome(parentActor);
-          });
-
-          Main.layoutManager.addChrome(parentActor);
+            background-size: cover;
+            width: 250px;
+            height: 250px;
+          `);
+          parentActor.visible = true;
         });
       });
-      this.menu.addMenuItem(qrMenuItem);
     }
   });
 
