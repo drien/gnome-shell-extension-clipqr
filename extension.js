@@ -106,7 +106,7 @@ const Indicator = GObject.registerClass(
   },
 );
 
-export default class IndicatorExampleExtension extends Extension {
+export default class ClipQRExtension extends Extension {
   enable() {
     this._indicator = new Indicator(this);
     Main.panel.addToStatusArea(this.uuid, this._indicator);
