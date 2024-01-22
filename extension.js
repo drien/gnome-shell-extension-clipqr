@@ -29,6 +29,7 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import QRCode from './vendor/qrcode.js';
+import MIME_EXTENSIONS from './lib/mimetypes.js';
 
 const Indicator = GObject.registerClass(
   class Indicator extends PanelMenu.Button {
@@ -56,10 +57,13 @@ const Indicator = GObject.registerClass(
       this.menu.addMenuItem(emptyItem);
 
       let file;
+      let httpSubProc;
+      let dir;
       this.menu.connect('open-state-changed', (menu, open) => {
         if (!open) {
           if (file) {
             file.delete(null);
+            httpSubProc.force_exit();
           }
           return;
         }
@@ -67,13 +71,50 @@ const Indicator = GObject.registerClass(
         qrWidget.visible = false;
         emptyItem.visible = false;
 
+        let testText;
+
+        Gio.File.new_tmp_dir_async('__TEST__XXXXXX', null, null, (source, result, data)=>{
+          dir = Gio.File.new_tmp_dir_finish(result);
+
+          console.warn(St.Clipboard.get_default().get_mimetypes(St.ClipboardType.CLIPBOARD));
+          St.Clipboard.get_default().get_mimetypes(St.ClipboardType.CLIPBOARD).forEach((itm) => {
+            if (!(itm in MIME_EXTENSIONS)) {
+              return;
+            }
+
+            const f = Gio.File.new_for_path(`${dir.get_path()}/pasted_file.${MIME_EXTENSIONS[itm]}`);
+
+            St.Clipboard.get_default().get_content(St.ClipboardType.CLIPBOARD, itm, (clipboard, bytes) => {
+              f.replace_contents(
+                bytes.get_data(),
+                null,
+                false,
+                Gio.FileCreateFlags.REPLACE_DESTINATION,
+                null,
+              );
+            });
+          });
+
+          testText = 'http://adrien-desktop.local:51386/'
+
+          try {
+              httpSubProc = Gio.Subprocess.new(
+                  ['python3', '-m', 'http.server', '-d', dir.get_path(), '51386'],
+                  Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
+              );
+          } catch (e) {
+              logError(e);
+          }
+        });
+
         St.Clipboard.get_default().get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
+
           if (!text) {
             emptyItem.visible = true;
             return;
           }
           const qrCode = new QRCode({
-            content: text,
+            content: testText ? testText : text,
             padding: 1,
             width: 256,
             height: 256,
