@@ -55,6 +55,13 @@ const Indicator = GObject.registerClass(
       });
       this.menu.addMenuItem(emptyItem);
 
+      const tooBigItem = new PopupMenu.PopupMenuItem(_('The clipboard contents is too large to make into a QR Code.'), {
+        can_focus: false,
+        hover: false,
+        activate: false,
+      });
+      this.menu.addMenuItem(tooBigItem);
+
       let file;
       this.menu.connect('open-state-changed', (menu, open) => {
         if (!open) {
@@ -66,22 +73,33 @@ const Indicator = GObject.registerClass(
 
         qrWidget.visible = false;
         emptyItem.visible = false;
+        tooBigItem.visible = false;
 
         St.Clipboard.get_default().get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
           if (!text) {
             emptyItem.visible = true;
             return;
           }
-          const qrCode = new QRCode({
-            content: text,
-            padding: 1,
-            width: 256,
-            height: 256,
-            color: '#000000',
-            background: '#ffffff',
-            ecl: 'M',
-          });
 
+          let qrCode;
+          try {
+            qrCode = new QRCode({
+              content: text,
+              padding: 1,
+              width: 256,
+              height: 256,
+              color: '#000000',
+              background: '#ffffff',
+              ecl: 'M',
+            });
+          }
+          catch (error) {
+            console.warn('Got error generating QR Code:', error);
+            // Assuming a crash here is because the data is too big for the QR. Other errors are possible, but this is fine.
+            // The QR lib throws a few different errors around size, so better just to catch them all.
+            tooBigItem.visible = true;
+            return;
+          }
           const fileInfo = Gio.File.new_tmp('clipqrXXXXXX');
           file = fileInfo[0];
 
