@@ -35,14 +35,11 @@ const Indicator = GObject.registerClass(
     _init(extensionInfo) {
 
       super._init(0.0, _('ClipQR'));
-      const self = this;
 
       const icon = new St.Icon({
         style_class: 'system-status-icon',
+        icon_name: 'qr-code-symbolic',
       });
-      icon.gicon = Gio.icon_new_for_string(
-        `${extensionInfo.path}/resources/qr_icon.png`
-      );
       this.add_child(icon);
 
       let qrWidget;
