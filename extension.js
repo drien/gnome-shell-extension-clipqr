@@ -17,6 +17,8 @@
  */
 import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GdkPixbuf from 'gi://GdkPixbuf';
 import St from 'gi://St';
 
 import {
@@ -47,7 +49,7 @@ const Indicator = GObject.registerClass(
       let qrWidget;
       qrWidget = new St.Widget();
       this.menu.box.add_child(qrWidget);
-      const emptyItem = new PopupMenu.PopupMenuItem(_('The clipboard is empty.'), {
+      const emptyItem = new PopupMenu.PopupMenuItem(_('The clipboard contains no text.'), {
         can_focus: false,
         hover: false,
         activate: false,
@@ -62,6 +64,28 @@ const Indicator = GObject.registerClass(
       this.menu.addMenuItem(tooBigItem);
 
       let file;
+      const copyImageItem = new PopupMenu.PopupMenuItem(_('Copy QR Code image'));
+      this.menu.addMenuItem(copyImageItem);
+      copyImageItem.connect('activate', () => {
+        if (!file) {
+          return;
+        }
+        try {
+          const pixbuf = GdkPixbuf.Pixbuf.new_from_file(file.get_path());
+          const [success, buffer] = pixbuf.save_to_bufferv('png', [], []);
+          if (!success) {
+            return;
+          }
+          St.Clipboard.get_default().set_content(
+            St.ClipboardType.CLIPBOARD,
+            'image/png',
+            GLib.Bytes.new(buffer),
+          );
+        } catch (error) {
+          console.warn('Failed to copy QR Code as image:', error);
+        }
+      });
+
       this.menu.connect('open-state-changed', (menu, open) => {
         if (!open) {
           if (file) {
@@ -73,6 +97,7 @@ const Indicator = GObject.registerClass(
         qrWidget.visible = false;
         emptyItem.visible = false;
         tooBigItem.visible = false;
+        copyImageItem.visible = false;
 
         St.Clipboard.get_default().get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
           if (!text) {
@@ -117,6 +142,7 @@ const Indicator = GObject.registerClass(
             height: 256px;
           `);
           qrWidget.visible = true;
+          copyImageItem.visible = true;
         });
       });
     }
