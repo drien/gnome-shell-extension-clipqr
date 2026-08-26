@@ -17,6 +17,8 @@
  */
 import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GdkPixbuf from 'gi://GdkPixbuf';
 import St from 'gi://St';
 
 import {
@@ -47,7 +49,7 @@ const Indicator = GObject.registerClass(
       let qrWidget;
       qrWidget = new St.Widget();
       this.menu.box.add_child(qrWidget);
-      const emptyItem = new PopupMenu.PopupMenuItem(_('The clipboard is empty.'), {
+      const emptyItem = new PopupMenu.PopupMenuItem(_('The clipboard contains no text.'), {
         can_focus: false,
         hover: false,
         activate: false,
@@ -61,11 +63,68 @@ const Indicator = GObject.registerClass(
       });
       this.menu.addMenuItem(tooBigItem);
 
+      // The QR is derived live from the clipboard text, but copying the QR as
+      // an image overwrites the clipboard, destroying that source text. To keep
+      // the feature from being one-shot we cache the last SVG we generated (in
+      // memory only — never on disk) so we can redisplay and re-copy it after
+      // the clipboard has been clobbered. `_cachedSvg` is cleared on disable().
       let file;
+
+      const displaySvg = (svg) => {
+        // St's background-image needs a URL, so we round-trip through a temp
+        // file. It's recreated on every open and deleted on close, so nothing
+        // sensitive lingers in /tmp.
+        const fileInfo = Gio.File.new_tmp('clipqrXXXXXX');
+        file = fileInfo[0];
+        file.replace_contents(
+          new TextEncoder().encode(svg),
+          null,
+          false,
+          Gio.FileCreateFlags.REPLACE_DESTINATION,
+          null,
+        );
+        qrWidget.set_style(`
+          background-image: url(${file.get_uri()});
+          background-size: cover;
+          width: 256px;
+          height: 256px;
+        `);
+        qrWidget.visible = true;
+        copyImageItem.visible = true;
+      };
+
+      const copyImageItem = new PopupMenu.PopupMenuItem(_('Copy QR Code image'));
+      this.menu.addMenuItem(copyImageItem);
+      copyImageItem.connect('activate', () => {
+        if (!this._cachedSvg) {
+          return;
+        }
+        try {
+          // Rasterise straight from the cached SVG bytes in memory — this no
+          // longer depends on the display temp file existing.
+          const stream = Gio.MemoryInputStream.new_from_bytes(
+            GLib.Bytes.new(new TextEncoder().encode(this._cachedSvg)),
+          );
+          const pixbuf = GdkPixbuf.Pixbuf.new_from_stream(stream, null);
+          const [success, buffer] = pixbuf.save_to_bufferv('png', [], []);
+          if (!success) {
+            return;
+          }
+          St.Clipboard.get_default().set_content(
+            St.ClipboardType.CLIPBOARD,
+            'image/png',
+            GLib.Bytes.new(buffer),
+          );
+        } catch (error) {
+          console.warn('Failed to copy QR Code as image:', error);
+        }
+      });
+
       this.menu.connect('open-state-changed', (menu, open) => {
         if (!open) {
           if (file) {
             file.delete(null);
+            file = null;
           }
           return;
         }
@@ -73,10 +132,18 @@ const Indicator = GObject.registerClass(
         qrWidget.visible = false;
         emptyItem.visible = false;
         tooBigItem.visible = false;
+        copyImageItem.visible = false;
 
         St.Clipboard.get_default().get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
           if (!text) {
-            emptyItem.visible = true;
+            // No text on the clipboard — most likely because we just replaced
+            // it with the QR image. Fall back to the cached QR so the user can
+            // copy it again rather than seeing it vanish.
+            if (this._cachedSvg) {
+              displaySvg(this._cachedSvg);
+            } else {
+              emptyItem.visible = true;
+            }
             return;
           }
 
@@ -99,24 +166,9 @@ const Indicator = GObject.registerClass(
             tooBigItem.visible = true;
             return;
           }
-          const fileInfo = Gio.File.new_tmp('clipqrXXXXXX');
-          file = fileInfo[0];
 
-          file.replace_contents(
-            new TextEncoder().encode(qrCode.svg()),
-            null,
-            false,
-            Gio.FileCreateFlags.REPLACE_DESTINATION,
-            null,
-          );
-
-          qrWidget.set_style(`
-            background-image: url(${file.get_uri()});
-            background-size: cover;
-            width: 256px;
-            height: 256px;
-          `);
-          qrWidget.visible = true;
+          this._cachedSvg = qrCode.svg();
+          displaySvg(this._cachedSvg);
         });
       });
     }
@@ -130,6 +182,8 @@ export default class ClipQRExtension extends Extension {
   }
 
   disable() {
+    // Drop the cached QR SVG so no clipboard-derived data outlives the extension.
+    this._indicator._cachedSvg = null;
     this._indicator.destroy();
     this._indicator = null;
   }
